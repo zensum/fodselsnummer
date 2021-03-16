@@ -2,22 +2,22 @@
 
 import re
 from datetime import date, datetime, timedelta as td
+from typing import Callable, Optional
 
 FNR_REGEX = re.compile(r'\d{11}')
 
+
 class FodselsnummerException(Exception):
     pass
+
+
 class InvalidControlDigitException(FodselsnummerException):
     pass
 
 
-def check_fnr(fnr, d_numbers=True):
+def check_fnr(fnr: str, d_numbers=True, h_numbers=False, logger: Callable = lambda _x: None) -> bool:
     """
     Check if a number is a valid fodselsnumber.
-
-    Only checks the control digits, does not check if the
-    individual numbers are used in the relevant year
-
     Args:
         fnr: A string containing the fodselsnummer to check
         d_numbers: True (the default) if d-numbers should be accepted
@@ -27,24 +27,54 @@ def check_fnr(fnr, d_numbers=True):
     if not FNR_REGEX.match(fnr):
         return False
 
-    try:
-        datetime.strptime(fnr[0:6], '%d%m%y')
-    except ValueError:
-        if d_numbers:
-            dnrdatestring = str(int(fnr[0])-4) + fnr[1:6]
-            try:
-                datetime.strptime(dnrdatestring, '%d%m%y')
-            except ValueError:
-                return False
-        else:
+    individual_number = int(fnr[6:9])
+    day, month, year = int(fnr[0:2]), int(fnr[2:4]), int(fnr[4:6])
+    if 41 <= day <= 71:  # if D-number
+        if not d_numbers:
+            logger('Day out of range in fnr')
             return False
+        day -= 40
+
+    if not (1 <= day <= 31):
+        logger('Day out of range in fnr')
+        return False
+    if 41 <= month <= 52:  # if H-number
+        if h_numbers:
+            month -= 40
+        else:
+            logger('Month out of range')
+            return False
+    if not 1 <= month <= 12:
+        logger('Month out of range in fnr')
+        return False
+    if individual_number <= 499:  # individual numbers 000-499 indicate person is born in 19XX
+        year += 1900
+    else:
+        year += 2000
+    if individual_number >= 900 and year >= 2040:
+        year -= 100
+    dob: Optional[date] = None
+    try:
+        dob = date(year=year, month=month, day=day)
+    except ValueError:
+        logger(f'{year}-{month}-{day} is not a valid date')
+        return False
 
     try:
         generatedfnr = _generate_control_digits(fnr[0:9])
+        logger('Control digit does not match fnr')
     except InvalidControlDigitException:
         return False
 
-    return bool(fnr == generatedfnr)
+    if dob and dob > datetime.utcnow().date():
+        logger('Date of fnr is larger than current date')
+        return False
+
+    if not bool(fnr == generatedfnr):
+        logger('Control digit does not match fnr')
+        return False
+    return True
+
 
 def generate_fnr_for_year(year, d_numbers):
     """
@@ -64,6 +94,7 @@ def generate_fnr_for_year(year, d_numbers):
         allfnrs += generate_fnr_for_day(startdate + td(days=i), d_numbers)
     return allfnrs
 
+
 def generate_fnr_for_day(day, d_numbers):
     """
     Generates all the possible fodselsnumbers for a day.
@@ -78,7 +109,7 @@ def generate_fnr_for_day(day, d_numbers):
     stupid1900s = False
     datestring = day.strftime('%d%m%y')
     if d_numbers:
-        dnrdatestring = str(int(datestring[0])+4) + datestring[1:]
+        dnrdatestring = str(int(datestring[0]) + 4) + datestring[1:]
     # ref:
     # http://www.kith.no/upload/5588/KITH1001-2010_Identifikatorer-for-personer_v1.pdf
     # Does not account for the 1800s, since this is for living persons
@@ -91,7 +122,7 @@ def generate_fnr_for_day(day, d_numbers):
     else:
         individualmin = 500
         individualmax = 999
-    for x in range(individualmin, individualmax+1):
+    for x in range(individualmin, individualmax + 1):
         individualnr = str(x).zfill(3)
         try:
             thisdaysfnr.append(_generate_control_digits(datestring + individualnr))
@@ -105,7 +136,7 @@ def generate_fnr_for_day(day, d_numbers):
     # Bonus round because of the stupid 1900s
     if stupid1900s:
         for x in range(900, 1000):
-            individual_nr = str(x).zfill(3)
+            individualnr = str(x).zfill(3)
             try:
                 thisdaysfnr.append(_generate_control_digits(datestring + individualnr))
             except InvalidControlDigitException:
@@ -116,6 +147,7 @@ def generate_fnr_for_day(day, d_numbers):
                 except InvalidControlDigitException:
                     pass
     return thisdaysfnr
+
 
 def _generate_control_digits(numbersofar):
     """Generates the magic control digits in a fodselsnumber"""
@@ -128,8 +160,8 @@ def _generate_control_digits(numbersofar):
     if rest == 0:
         control1 = 0
     else:
-        if 11-rest != 10:
-            control1 = 11-rest
+        if 11 - rest != 10:
+            control1 = 11 - rest
         else:
             raise InvalidControlDigitException
     numbersofar += str(control1)
@@ -140,8 +172,8 @@ def _generate_control_digits(numbersofar):
     if rest == 0:
         control2 = 0
     else:
-        if 11-rest != 10:
-            control2 = 11-rest
+        if 11 - rest != 10:
+            control2 = 11 - rest
         else:
             raise InvalidControlDigitException
     numbersofar += str(control2)

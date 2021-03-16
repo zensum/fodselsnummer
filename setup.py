@@ -2,14 +2,16 @@ import os
 import codecs
 
 try:
-    from setuptools import setup
+    from setuptools import setup  # type: ignore
 except ImportError:
     from distutils.core import setup
+
 
 def read_file(filename, encoding='utf8'):
     """Read unicode from given file."""
     with codecs.open(filename, encoding=encoding) as fd:
         return fd.read()
+
 
 here = os.path.abspath(os.path.dirname(__file__))
 readme = read_file(os.path.join(here, 'README.rst'))
@@ -34,5 +36,5 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
-        ],
+    ],
 )
