@@ -2,7 +2,7 @@
 
 import re
 from datetime import date, timedelta as td
-from typing import Callable, Optional
+from typing import Callable, Literal, Optional
 
 FNR_REGEX = re.compile(r'\d{11}')
 
@@ -13,6 +13,59 @@ class FodselsnummerException(Exception):
 
 class InvalidControlDigitException(FodselsnummerException):
     pass
+
+
+def validate_fnr(fnr: str, d_numbers=True, h_numbers=False) -> Literal[True]:
+    """
+    Check if a number is a valid fødselsnumber.
+    Args:
+        fnr: A string containing the fodselsnummer to check
+        h_numbers: False (the default) if h-numbers should be accepted
+        d_numbers: True (the default) if d-numbers should be accepted
+    Returns:
+        True if it is a valid fodselsnummer, False otherwise.
+    """
+    if not FNR_REGEX.match(fnr):
+        raise ValueError('Fødselsnumber does not match regex \\d{11}')
+
+    individual_number = int(fnr[6:9])
+    day, month, year = int(fnr[0:2]), int(fnr[2:4]), int(fnr[4:6])
+    if 41 <= day <= 71:  # if D-number
+        if not d_numbers:
+            raise ValueError('Fødselsnumber is a D-number (or day out of range)')
+        day -= 40
+
+    if not (1 <= day <= 31):
+        raise ValueError('Day out of range in fødselsnumber')
+    if 41 <= month <= 52:  # if H-number
+        if h_numbers:
+            month -= 40
+        else:
+            raise ValueError('Fødselsnumber is a H-number (or month out of range)')
+    if not 1 <= month <= 12:
+        raise ValueError('Month out of range in fødselsnumber')
+    if individual_number <= 499:  # individual numbers 000-499 indicate person is born in 19XX
+        year += 1900
+    else:
+        year += 2000
+    if individual_number >= 900 and year >= 2040:
+        year -= 100
+    dob: Optional[date] = None
+    try:
+        dob = date(year=year, month=month, day=day)
+        if dob > date.today():
+            raise ValueError('Date of fødselsnumber is larger than current date')
+    except ValueError:
+        raise ValueError(f'{year}-{month}-{day} is not a valid date')
+
+    try:
+        generatedfnr = _generate_control_digits(fnr[0:9])
+    except InvalidControlDigitException:
+        raise ValueError('Control digit does not match fødselsnumber')
+
+    if not bool(fnr == generatedfnr):
+        raise ValueError('Control digit does not match fødselsnumber')
+    return True
 
 
 def check_fnr(fnr: str, d_numbers=True, h_numbers=False, logger: Callable = lambda _x: None) -> bool:
@@ -26,55 +79,11 @@ def check_fnr(fnr: str, d_numbers=True, h_numbers=False, logger: Callable = lamb
     Returns:
         True if it is a valid fodselsnummer, False otherwise.
     """
-    if not FNR_REGEX.match(fnr):
-        return False
-
-    individual_number = int(fnr[6:9])
-    day, month, year = int(fnr[0:2]), int(fnr[2:4]), int(fnr[4:6])
-    if 41 <= day <= 71:  # if D-number
-        if not d_numbers:
-            logger('fødselsnumber is a D-number (or day out of range)')
-            return False
-        day -= 40
-
-    if not (1 <= day <= 31):
-        logger('Day out of range in fnr')
-        return False
-    if 41 <= month <= 52:  # if H-number
-        if h_numbers:
-            month -= 40
-        else:
-            logger('fødselsnumber is a H-number (or month out of range)')
-            return False
-    if not 1 <= month <= 12:
-        logger('Month out of range in fødselsnumber')
-        return False
-    if individual_number <= 499:  # individual numbers 000-499 indicate person is born in 19XX
-        year += 1900
-    else:
-        year += 2000
-    if individual_number >= 900 and year >= 2040:
-        year -= 100
-    dob: Optional[date] = None
     try:
-        dob = date(year=year, month=month, day=day)
-        if dob > date.today():
-            logger('Date of fødselsnumber is larger than current date')
-            return False
-    except ValueError:
-        logger(f'{year}-{month}-{day} is not a valid date')
+        return validate_fnr(fnr=fnr, d_numbers=d_numbers, h_numbers=h_numbers)
+    except Exception as e:
+        logger(next((a for a in e.args), ''))
         return False
-
-    try:
-        generatedfnr = _generate_control_digits(fnr[0:9])
-    except InvalidControlDigitException:
-        logger('Control digit does not match fødselsnumber')
-        return False
-
-    if not bool(fnr == generatedfnr):
-        logger('Control digit does not match fødselsnumber')
-        return False
-    return True
 
 
 def generate_fnr_for_year(year, d_numbers):
