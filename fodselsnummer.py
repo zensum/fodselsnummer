@@ -1,7 +1,7 @@
-"""Functions for validation and generation of Norwegian fodselsnumbers"""
+"""Functions for validation and generation of Norwegian fødselsnumbers"""
 
 import re
-from datetime import date, datetime, timedelta as td
+from datetime import date, timedelta as td
 from typing import Callable, Optional
 
 FNR_REGEX = re.compile(r'\d{11}')
@@ -17,10 +17,12 @@ class InvalidControlDigitException(FodselsnummerException):
 
 def check_fnr(fnr: str, d_numbers=True, h_numbers=False, logger: Callable = lambda _x: None) -> bool:
     """
-    Check if a number is a valid fodselsnumber.
+    Check if a number is a valid fødselsnumber.
     Args:
         fnr: A string containing the fodselsnummer to check
+        h_numbers: False (the default) if h-numbers should be accepted
         d_numbers: True (the default) if d-numbers should be accepted
+        logger: A function used to log things
     Returns:
         True if it is a valid fodselsnummer, False otherwise.
     """
@@ -31,7 +33,7 @@ def check_fnr(fnr: str, d_numbers=True, h_numbers=False, logger: Callable = lamb
     day, month, year = int(fnr[0:2]), int(fnr[2:4]), int(fnr[4:6])
     if 41 <= day <= 71:  # if D-number
         if not d_numbers:
-            logger('Day out of range in fnr')
+            logger('fødselsnumber is a D-number (or day out of range)')
             return False
         day -= 40
 
@@ -42,10 +44,10 @@ def check_fnr(fnr: str, d_numbers=True, h_numbers=False, logger: Callable = lamb
         if h_numbers:
             month -= 40
         else:
-            logger('Month out of range')
+            logger('fødselsnumber is a H-number (or month out of range)')
             return False
     if not 1 <= month <= 12:
-        logger('Month out of range in fnr')
+        logger('Month out of range in fødselsnumber')
         return False
     if individual_number <= 499:  # individual numbers 000-499 indicate person is born in 19XX
         year += 1900
@@ -56,29 +58,28 @@ def check_fnr(fnr: str, d_numbers=True, h_numbers=False, logger: Callable = lamb
     dob: Optional[date] = None
     try:
         dob = date(year=year, month=month, day=day)
+        if dob > date.today():
+            logger('Date of fødselsnumber is larger than current date')
+            return False
     except ValueError:
         logger(f'{year}-{month}-{day} is not a valid date')
         return False
 
     try:
         generatedfnr = _generate_control_digits(fnr[0:9])
-        logger('Control digit does not match fnr')
     except InvalidControlDigitException:
-        return False
-
-    if dob and dob > datetime.utcnow().date():
-        logger('Date of fnr is larger than current date')
+        logger('Control digit does not match fødselsnumber')
         return False
 
     if not bool(fnr == generatedfnr):
-        logger('Control digit does not match fnr')
+        logger('Control digit does not match fødselsnumber')
         return False
     return True
 
 
 def generate_fnr_for_year(year, d_numbers):
     """
-    Generates all the possible fodselsnumbers for a year.
+    Generates all the possible fødselsnumbers for a year.
 
     Args:
         year: The year to generate fodselsnummers for (integer)
@@ -97,7 +98,7 @@ def generate_fnr_for_year(year, d_numbers):
 
 def generate_fnr_for_day(day, d_numbers):
     """
-    Generates all the possible fodselsnumbers for a day.
+    Generates all the possible fødselsnumbers for a day.
 
     Args:
         day: The day to generate fodslesnummers for (datetime)
@@ -150,7 +151,7 @@ def generate_fnr_for_day(day, d_numbers):
 
 
 def _generate_control_digits(numbersofar):
-    """Generates the magic control digits in a fodselsnumber"""
+    """Generates the magic control digits in a fødselsnumber"""
     staticnumbers1 = [3, 7, 6, 1, 8, 9, 4, 5, 2, 1]
     staticnumbers2 = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2, 1]
     sum1 = 0
