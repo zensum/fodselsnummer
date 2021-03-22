@@ -81,8 +81,8 @@ def check_fnr(fnr: str, d_numbers=True, h_numbers=False, logger: Callable = lamb
     """
     try:
         return validate_fnr(fnr=fnr, d_numbers=d_numbers, h_numbers=h_numbers)
-    except Exception as e:
-        logger(next((a for a in e.args), ''))
+    except ValueError as e:
+        logger(str(e))
         return False
 
 
