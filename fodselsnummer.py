@@ -1,8 +1,10 @@
 """Functions for validation and generation of Norwegian fødselsnumbers"""
 
 import re
-from datetime import date, timedelta as td
+from datetime import date, datetime
 from typing import Callable, Literal, Optional
+from dateutil.relativedelta import relativedelta
+
 
 FNR_REGEX = re.compile(r'\d{11}')
 
@@ -188,3 +190,36 @@ def _generate_control_digits(numbersofar):
             raise InvalidControlDigitException
     numbersofar += str(control2)
     return numbersofar
+
+"""
+The national identity number consists of 11 digits. 
+The first six digits represent the date of birth in the order day, month, year. 
+The next three digits are an individual number, the third digit of which indicates gender 
+– even numbers for women and odd numbers for men. The last two digits are control digits.
+
+Source: https://www.oecd.org/tax/automatic-exchange/crs-implementation-and-assistance/tax-identification-numbers/Norway-TIN.pdf
+"""
+def get_age(fnr: str) -> int:
+    validate_fnr(fnr=fnr)
+
+    day, month, year, individual_number = int(fnr[0:2]), int(fnr[2:4]), int(fnr[4:6]), int(fnr[6:9])
+
+    """
+    born 1854-1899: allocated from series 749-500
+    born 1900-1999: allocated from series 499-000
+    born 1940-1999: also allocated from series 999-900
+    born 2000-2039: allocated from series 999-500
+
+    Source: https://www.oecd.org/tax/automatic-exchange/crs-implementation-and-assistance/tax-identification-numbers/Norway-TIN.pdf 
+    """
+    if individual_number <= 499:  # individual numbers 000-499 indicate person is born in 19XX
+        year += 1900
+    else:
+        year += 2000
+    if individual_number >= 900 and year >= 2040:
+        year -= 100
+
+    birth_date = date(year, month, day)
+    now_date = datetime.now().date()
+
+    return relativedelta(now_date, birth_date).years
