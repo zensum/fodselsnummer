@@ -3,7 +3,7 @@ import codecs
 
 try:
     from setuptools import setup  # type: ignore
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     from distutils.core import setup
 
 
@@ -36,5 +36,7 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
 )
