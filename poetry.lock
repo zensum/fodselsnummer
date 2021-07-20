@@ -20,7 +20,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "27fa66343e71fbffc9cac43138b25791a9be6b6a5cf432ef5c9e88ebc38f7a04"
+content-hash = "82fbccb17183a71a9695f4fe6de30f39d188b95de26d745daa54104d218733db"
 
 [metadata.files]
 python-dateutil = [
