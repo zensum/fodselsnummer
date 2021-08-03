@@ -3,8 +3,8 @@
 import re
 from datetime import date, datetime
 from typing import Callable, Literal, Optional
-from dateutil.relativedelta import relativedelta
 
+from dateutil.relativedelta import relativedelta
 
 FNR_REGEX = re.compile(r'\d{11}')
 
@@ -192,9 +192,9 @@ def _generate_control_digits(numbersofar):
     return numbersofar
 
 """
-The national identity number consists of 11 digits. 
-The first six digits represent the date of birth in the order day, month, year. 
-The next three digits are an individual number, the third digit of which indicates gender 
+The national identity number consists of 11 digits.
+The first six digits represent the date of birth in the order day, month, year.
+The next three digits are an individual number, the third digit of which indicates gender
 – even numbers for women and odd numbers for men. The last two digits are control digits.
 
 Source: https://www.oecd.org/tax/automatic-exchange/crs-implementation-and-assistance/tax-identification-numbers/Norway-TIN.pdf
@@ -210,7 +210,7 @@ def get_age(fnr: str) -> int:
     born 1940-1999: also allocated from series 999-900
     born 2000-2039: allocated from series 999-500
 
-    Source: https://www.oecd.org/tax/automatic-exchange/crs-implementation-and-assistance/tax-identification-numbers/Norway-TIN.pdf 
+    Source: https://www.oecd.org/tax/automatic-exchange/crs-implementation-and-assistance/tax-identification-numbers/Norway-TIN.pdf
     """
     if individual_number <= 499:  # individual numbers 000-499 indicate person is born in 19XX
         year += 1900
@@ -223,3 +223,43 @@ def get_age(fnr: str) -> int:
     now_date = datetime.now().date()
 
     return relativedelta(now_date, birth_date).years
+
+
+def get_date_of_birth(fnr: str, d_numbers=True, h_numbers=False) -> date:
+    """
+    Extracts date of birth from a valid fødselsnumber.
+    Args:
+        fnr: fodselsnummer to check
+        h_numbers: False (the default) if h-numbers should be accepted
+        d_numbers: True (the default) if d-numbers should be accepted
+    Returns:
+        returns date of birth of type date
+    """
+
+    validate_fnr(fnr=fnr, d_numbers=d_numbers, h_numbers=h_numbers)
+
+    individual_number = int(fnr[6:9])
+    day, month, year = int(fnr[0:2]), int(fnr[2:4]), int(fnr[4:6])
+    if 41 <= day <= 71:  # if D-number
+        if not d_numbers:
+            raise ValueError('Fødselsnumber is a D-number (or day out of range)')
+        day -= 40
+
+    if not (1 <= day <= 31):
+        raise ValueError('Day out of range in fødselsnumber')
+
+    if 41 <= month <= 52:  # if H-number
+        if h_numbers:
+            month -= 40
+        else:
+            raise ValueError('Fødselsnumber is a H-number (or month out of range)')
+    if not 1 <= month <= 12:
+        raise ValueError('Month out of range in fødselsnumber')
+    if individual_number <= 499:  # individual numbers 000-499 indicate person is born in 19XX
+        year += 1900
+    else:
+        year += 2000
+    if individual_number >= 900 and year >= 2040:
+        year -= 100
+
+    return date(year=year, month=month, day=day)
