@@ -200,9 +200,19 @@ The next three digits are an individual number, the third digit of which indicat
 Source: https://www.oecd.org/tax/automatic-exchange/crs-implementation-and-assistance/tax-identification-numbers/Norway-TIN.pdf
 """
 def get_age(fnr: str) -> int:
-    validate_fnr(fnr=fnr)
+    validate_fnr(fnr=fnr, d_numbers=True, h_numbers=True)
 
     day, month, year, individual_number = int(fnr[0:2]), int(fnr[2:4]), int(fnr[4:6]), int(fnr[6:9])
+
+    if 41 <= day <= 71:  # if D-number
+        day -= 40
+    if not (1 <= day <= 31):
+        raise ValueError('Day out of range in fødselsnumber')
+
+    if 41 <= month <= 52:  # if H-number
+        month -= 40
+    if not 1 <= month <= 12:
+        raise ValueError('Month out of range in fødselsnumber')
 
     """
     born 1854-1899: allocated from series 749-500
